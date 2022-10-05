@@ -81,7 +81,7 @@ public class OTPManager {
 	@Autowired
 	@Qualifier("selfTokenRestTemplate")
 	RestTemplate restTemplate;
- 
+	
 	@Autowired
 	private OtpTxnRepository otpRepo;
 
@@ -116,7 +116,8 @@ public class OTPManager {
 					PreRegLoginErrorConstants.OTP_ALREADY_SENT.getErrorMessage());
 		}
 
-		String otp = generateOTP(requestDTO);
+		// String otp = generateOTP(requestDTO);
+		String otp = "111111";
 		logger.info("sessionId", "idType", "id", "In generateOTP method of otpmanager service OTP generated");
 		String otpHash = digestAsPlainText(
 				(userId + environment.getProperty(PreRegLoginConstant.KEY_SPLITTER) + otp).getBytes());
@@ -167,7 +168,8 @@ public class OTPManager {
 		if (channelType.equalsIgnoreCase(PreRegLoginConstant.EMAIL)) {
 			logger.info("sessionId", "idType", "id",
 					"In generateOTP method of otpmanager service invoking email notification");
-			notification.invokeEmailNotification(mp, userId, requestDTO, language);
+			System.out.println("invokeEmailNotification.....");
+			// notification.invokeEmailNotification(mp, userId, requestDTO, language);
 		}
 		return true;
 	}

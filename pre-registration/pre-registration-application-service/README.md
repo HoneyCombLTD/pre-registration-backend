@@ -44,5 +44,30 @@ This service manages to provide the following service to the Pre-registration ap
 
 * keycloak
 
+## Technology Associates Fixes
 
+* Comment out to disable otp generation and sending email in the `OTPManager.java`.
+```
+String otp = generateOTP(requestDTO);
 
+notification.invokeEmailNotification(mp, userId, requestDTO, language);
+```
+
+* Comment out these lines in the `DemographicServiceUtil.java` file as suggested by the mosip team
+```
+throw new SystemFileIOException(DemographicErrorCodes.PRG_PAM_APP_018.getCode(),
+
+DemographicErrorMessages.UBALE_TO_READ_IDENTITY_JSON.getMessage(), null);
+```
+
+* Add config server specification in the properties files eg. shown below is our case
+```
+spring.cloud.config.uri=http://localhost:8878
+spring.cloud.config.label=1.2.0.1-v3
+spring.cloud.config.name=pre-registration-default
+spring.profiles.active=default
+```
+
+* Make extra necessary configuration eg 
+  * DB connection details
+  * Mapping the internal services to their respective proxies
