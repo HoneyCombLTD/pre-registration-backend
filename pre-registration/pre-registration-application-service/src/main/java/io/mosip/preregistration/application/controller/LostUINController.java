@@ -9,6 +9,7 @@ import org.springframework.validation.Errors;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -84,6 +85,33 @@ public class LostUINController {
 		DataValidationUtil.validate(errors, LOST_UIN_CREATE_ID);
 		return ResponseEntity.status(HttpStatus.OK).body(applicationService.addLostOrUpdateApplication(jsonObject,
 				BookingTypeCodes.LOST_FORGOTTEN_UIN.toString()));
+	}
+
+	/**
+	 * Get API to fetch all the Pre-registration data for a pre-id.
+	 *
+	 * @param preRegistraionId
+	 *                         the pre reg id
+	 * @return the application data for a pre-id
+	 */
+
+	// @PreAuthorize("hasAnyRole('INDIVIDUAL','REGISTRATION_OFFICER','REGISTRATION_SUPERVISOR','REGISTRATION_ADMIN','PRE_REGISTRATION_ADMIN')")
+	@PreAuthorize("hasAnyRole(@authorizedRoles.getGetapplications())")
+	@GetMapping(path = "/applications/lostuin/{preRegistrationId}", produces = MediaType.APPLICATION_JSON_VALUE)
+	@Operation(summary = "getPreRegLostUINData", description = "Get LostUIN request for a preregistration", tags = "lost-uin-controller")
+	@ApiResponses(value = {
+			@ApiResponse(responseCode = "200", description = "Demographic data successfully retrieved"),
+			@ApiResponse(responseCode = "401", description = "Unauthorized", content = @Content(schema = @Schema(hidden = true))),
+			@ApiResponse(responseCode = "403", description = "Forbidden", content = @Content(schema = @Schema(hidden = true))),
+			@ApiResponse(responseCode = "404", description = "Not Found", content = @Content(schema = @Schema(hidden = true))) })
+	public ResponseEntity<MainResponseDTO<ApplicationResponseDTO>> getPreRegLostUINData(
+			@PathVariable("preRegistrationId") String preRegistrationId) {
+		log.info("sessionId", "idType", "id",
+				"In pre-registration LostUINController for fetching single request by preregistrationId"
+						+ preRegistrationId);
+		System.out.println("preRegistrationId..." + preRegistrationId);
+		return ResponseEntity.status(HttpStatus.OK)
+				.body(applicationService.getLostPreRegistrationInfo(preRegistrationId));
 	}
 
 	/**

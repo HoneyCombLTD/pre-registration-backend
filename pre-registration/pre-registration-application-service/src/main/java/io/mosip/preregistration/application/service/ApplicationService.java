@@ -88,7 +88,7 @@ public class ApplicationService implements ApplicationServiceIntf {
 
 	@Autowired
 	private LostUINRepository lostUINRepository;
-	
+
 	/**
 	 * Autowired reference for {@link #RegistrationRepository}
 	 */
@@ -105,7 +105,7 @@ public class ApplicationService implements ApplicationServiceIntf {
 	 * ObjectMapper global object creation
 	 */
 	private ObjectMapper mapper;
-	
+
 	/**
 	 * Reference for ${lostUinDeleteId} from property file
 	 */
@@ -123,6 +123,12 @@ public class ApplicationService implements ApplicationServiceIntf {
 	 */
 	@Autowired
 	private DemographicServiceUtil serviceUtil;
+
+	/**
+	 * Reference for ${retrieveDetailsId} from property file
+	 */
+	@Value("${mosip.preregistration.lostuin.retrieve.details.id}")
+	private String retrieveId;
 
 	@Value("${mosip.utc-datetime-pattern}")
 	private String mosipDateTimeFormat;
@@ -316,15 +322,15 @@ public class ApplicationService implements ApplicationServiceIntf {
 			isSuccess = true;
 
 			if (bookingType.equals(BookingTypeCodes.LOST_FORGOTTEN_UIN.toString())) {
-			LostUINEntity lostUINEntity = new LostUINEntity();
+				LostUINEntity lostUINEntity = new LostUINEntity();
 
-			lostUINEntity.setDemographicId(request.getRequest().getPreregistrationId());
-			lostUINEntity.setApplicationId(applicationEntity.getApplicationId());
-			lostUINEntity.setLangCode(request.getRequest().getLangCode());
-			lostUINEntity.setCrBy(applicationEntity.getCrBy());
-			lostUINEntity.setCrDtime(LocalDateTime.now(ZoneId.of("UTC")));
+				lostUINEntity.setDemographicId(request.getRequest().getPreregistrationId());
+				lostUINEntity.setApplicationId(applicationEntity.getApplicationId());
+				lostUINEntity.setLangCode(request.getRequest().getLangCode());
+				lostUINEntity.setCrBy(applicationEntity.getCrBy());
+				lostUINEntity.setCrDtime(LocalDateTime.now(ZoneId.of("UTC")));
 
-			lostUINRepository.save(lostUINEntity);
+				lostUINRepository.save(lostUINEntity);
 			}
 
 			ApplicationResponseDTO appplicationResponse = new ApplicationResponseDTO();
@@ -338,7 +344,8 @@ public class ApplicationService implements ApplicationServiceIntf {
 			appplicationResponse.setUpdatedBy(applicationEntity.getUpdBy());
 			appplicationResponse.setUpdatedDateTime(serviceUtil.getLocalDateString(applicationEntity.getUpdDtime()));
 
-			DemographicEntity demographicEntity = demographicRepository.findBypreRegistrationId(request.getRequest().getPreregistrationId());
+			DemographicEntity demographicEntity = demographicRepository
+					.findBypreRegistrationId(request.getRequest().getPreregistrationId());
 			System.out.println("demographicEntity...." + demographicEntity);
 			if (demographicEntity != null) {
 				List<String> list = listAuth(authUserDetails().getAuthorities());
@@ -450,11 +457,11 @@ public class ApplicationService implements ApplicationServiceIntf {
 				ApplicationEntity applicationEntity = serviceUtil.findApplicationById(applicationId);
 				if (bookingType.equals(BookingTypeCodes.LOST_FORGOTTEN_UIN.toString())
 						|| bookingType.equals(BookingTypeCodes.UPDATE_REGISTRATION.toString())) {
-					//userValidation(applicationEntity);
+					// userValidation(applicationEntity);
 					if (!authUserDetails().getUserId().trim().equals(applicationEntity.getCrBy().trim())) {
 						throw new PreIdInvalidForUserIdException(ApplicationErrorCodes.PRG_APP_015.getCode(),
 								ApplicationErrorMessages.INVALID_APPLICATION_ID_FOR_USER.getMessage());
-					}	
+					}
 					if ((applicationEntity.getBookingStatusCode().equals(StatusCodes.BOOKED.getCode()))) {
 						MainResponseDTO<DeleteBookingDTO> deleteBooking = null;
 						deleteBooking = serviceUtil.deleteBooking(applicationId);
@@ -523,11 +530,11 @@ public class ApplicationService implements ApplicationServiceIntf {
 		}
 		return response;
 	}
-	
+
 	/**
 	 * This Method is used to fetch status of particular application
 	 * 
-	 *  @param applicationId
+	 * @param applicationId
 	 * @return response status of the application
 	 */
 	@Override
@@ -549,7 +556,7 @@ public class ApplicationService implements ApplicationServiceIntf {
 						ApplicationErrorMessages.NO_RECORD_FOUND.getMessage());
 			}
 			userValidation(applicationEntity);
-			applicationBookingStatus= applicationEntity.getBookingStatusCode();
+			applicationBookingStatus = applicationEntity.getBookingStatusCode();
 			log.info("Application STATUS : {} for the Application Id: {}", applicationBookingStatus, applicationId);
 			response.setResponse(applicationBookingStatus);
 		} catch (Exception ex) {
@@ -569,12 +576,11 @@ public class ApplicationService implements ApplicationServiceIntf {
 			if (!authUserDetails().getUserId().trim().equals(applicationEntity.getCrBy().trim())) {
 				throw new PreIdInvalidForUserIdException(ApplicationErrorCodes.PRG_APP_015.getCode(),
 						ApplicationErrorMessages.INVALID_APPLICATION_ID_FOR_USER.getMessage());
-			}	
-		}	
-		
+			}
+		}
+
 	}
 
-	
 	public void userValidationz(String authUserId, String preregUserId) {
 		log.info("sessionId", "idType", "id", "In getDemographicData method of userValidation with priid "
 				+ preregUserId + " and userID " + authUserId);
@@ -598,7 +604,7 @@ public class ApplicationService implements ApplicationServiceIntf {
 		}
 		return listWORole;
 	}
-	
+
 	/**
 	 * Gives all the application details for the logged in user for the given type.
 	 * 
@@ -631,6 +637,74 @@ public class ApplicationService implements ApplicationServiceIntf {
 			log.error("Exception trace", ex);
 			new DemographicExceptionCatcher().handle(ex, response);
 		}
+		return response;
+	}
+
+	@Override
+	public MainResponseDTO<ApplicationResponseDTO> getLostPreRegistrationInfo(String prid) {
+		log.info("sessionId", "idType", "id", "In LostUIN method of pre-registration service");
+		MainResponseDTO<ApplicationResponseDTO> response = new MainResponseDTO<>();
+		Map<String, String> requestParamMap = new HashMap<>();
+		response.setResponsetime(serviceUtil.getCurrentResponseTime());
+		response.setId(retrieveId);
+		response.setVersion(version);
+		try {
+			log.info("sessionId", "idType", "id", "Get the Demographics ID for the LOst UIN request");
+			String lostDemoId = lostUINRepository.findDemographicsIdByAppId(prid);
+			ApplicationEntity applicationEntity = applicationRepository.findByApplicationId(prid);
+			System.out.println("lostDemoData..." + applicationEntity.getApplicationId());
+			// requestParamMap.put(DemographicRequestCodes.PRE_REGISTRAION_ID.getCode(),
+			// preRegId);
+			if (validationUtil.requstParamValidator(requestParamMap)) {
+				log.info("sessionId", "idType", "id", "Get the Demographics from the lostDemoId");
+				DemographicEntity demographicEntity = demographicRepository.findBypreRegistrationId(lostDemoId);
+				System.out.println("demographicEntity..." + demographicEntity);
+				if (demographicEntity != null) {
+					List<String> list = listAuth(authUserDetails().getAuthorities());
+					log.info("sessionId", "idType", "id",
+							"In getDemographicData method of pre-registration service with list " +
+									list);
+					if (list.contains("ROLE_INDIVIDUAL")) {
+						userValidationz(authUserDetails().getUserId(),
+								demographicEntity.getCreatedBy());
+					}
+					String hashString = HashUtill.hashUtill(demographicEntity.getApplicantDetailJson());
+
+					if (HashUtill.isHashEqual(demographicEntity.getDemogDetailHash().getBytes(),
+							hashString.getBytes())) {
+
+						DemographicResponseDTO demographicData = serviceUtil.setterForCreateDTO(demographicEntity);
+						ApplicationResponseDTO appplicationResponse = new ApplicationResponseDTO();
+						appplicationResponse.setApplicationId(applicationEntity.getApplicationId());
+						appplicationResponse.setCreatedBy(applicationEntity.getCrBy());
+						// createdDateTime
+						appplicationResponse.setUpdatedBy(applicationEntity.getCrBy());
+						// updatedDateTime
+						appplicationResponse.setApplicationStatusCode(applicationEntity.getApplicationStatusCode());
+						appplicationResponse.setBookingStatusCode(applicationEntity.getBookingStatusCode());
+						appplicationResponse.setLangCode("eng");
+						appplicationResponse.setBookingType(BookingTypeCodes.LOST_FORGOTTEN_UIN.toString());
+						appplicationResponse.setDemographicData(demographicData);
+						response.setResponse(appplicationResponse);
+					} else {
+						throw new HashingException(
+								io.mosip.preregistration.core.errorcodes.ErrorCodes.PRG_CORE_REQ_010.name(),
+								io.mosip.preregistration.core.errorcodes.ErrorMessages.HASHING_FAILED.name());
+
+					}
+				} else {
+					throw new RecordNotFoundException(DemographicErrorCodes.PRG_PAM_APP_005.getCode(),
+							DemographicErrorMessages.UNABLE_TO_FETCH_THE_PRE_REGISTRATION.getMessage());
+				}
+			}
+		} catch (Exception ex) {
+			log.error("sessionId", "idType", "id", ExceptionUtils.getStackTrace(ex));
+			log.error("sessionId", "idType", "id",
+					"In getDemographicData of pre-registration service- " + ex.getMessage());
+			new DemographicExceptionCatcher().handle(ex, response);
+		}
+
+		response.setErrors(null);
 		return response;
 	}
 }

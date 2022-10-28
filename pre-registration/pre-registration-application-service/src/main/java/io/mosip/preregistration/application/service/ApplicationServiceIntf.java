@@ -79,4 +79,14 @@ public interface ApplicationServiceIntf {
 	 * @return MainResponseDTO<DeleteApplicationDTO>
 	 */
 	MainResponseDTO<DeleteApplicationDTO> deleteLostOrUpdateApplication(String applicationId, String bookingType);
+		
+	/**
+	 * This Method is used to GET a single LostUIN request by preId
+	 * 
+	 * @param preRegId pass the preregId of individual
+	 * @return response
+	 * 
+	 * 
+	 */
+	public MainResponseDTO<ApplicationResponseDTO> getLostPreRegistrationInfo(String prid);
 }
