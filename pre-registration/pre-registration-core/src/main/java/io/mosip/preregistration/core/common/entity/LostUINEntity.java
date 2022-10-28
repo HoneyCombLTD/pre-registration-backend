@@ -16,6 +16,7 @@ import org.hibernate.annotations.NamedQuery;
 import org.springframework.stereotype.Component;
 
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * This entity class defines the database table details for LostUINEntity.
@@ -26,6 +27,7 @@ import lombok.NoArgsConstructor;
  */
 @Component
 @Entity
+@Setter
 @Table(name = "application_replacements", schema = "prereg")
 @NoArgsConstructor
 @NamedQuery(name = "LostUINEntity.findByCreatedByOrderByCreateDateTime", query = "SELECT e FROM LostUINEntity e  WHERE e.crBy=:userId order by e.crDtime desc")
@@ -51,27 +53,4 @@ public class LostUINEntity implements Serializable {
 	@Column(name = "created_at")
 	private LocalDateTime crDtime;
 
-	public static long getSerialversionuid() {
-		return serialVersionUID;
-	}
-
-	public void setDemographicId(String demographicId) {
-		this.demographicId = demographicId;
-	}
-
-	public void setApplicationId(String applicationId) {
-		this.applicationId = applicationId;
-	}
-
-	public void setCrBy(String crBy) {
-		this.crBy = crBy;
-	}
-
-	public void setCrDtime(LocalDateTime crDtime) {
-		this.crDtime = crDtime;
-	}
-
-	public void setLangCode(String langCode) {
-		this.langCode = langCode;
-	}
 }
