@@ -12,7 +12,7 @@ import lombok.ToString;
  * This DTO class defines the variables to accept the input parameter from
  * request.
  * 
- * @author Mayura D
+ * @author Joel K
  * @since 1.2.0
  *
  */
@@ -20,7 +20,7 @@ import lombok.ToString;
 @Setter
 @NoArgsConstructor
 @ToString
-public class ApplicationRequestDTO implements Serializable {
+public class LostUINRequestDTO implements Serializable {
 	
 	/**
 	 * 

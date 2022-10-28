@@ -2,6 +2,7 @@ package io.mosip.preregistration.application.service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -40,6 +41,8 @@ import io.mosip.preregistration.application.dto.DeleteApplicationDTO;
 import io.mosip.preregistration.application.dto.UIAuditRequest;
 import io.mosip.preregistration.application.errorcodes.ApplicationErrorCodes;
 import io.mosip.preregistration.application.errorcodes.ApplicationErrorMessages;
+import io.mosip.preregistration.application.errorcodes.DemographicErrorCodes;
+import io.mosip.preregistration.application.errorcodes.DemographicErrorMessages;
 import io.mosip.preregistration.application.exception.AuditFailedException;
 import io.mosip.preregistration.application.exception.BookingDeletionFailedException;
 import io.mosip.preregistration.application.exception.DemographicServiceException;
@@ -47,6 +50,8 @@ import io.mosip.preregistration.application.exception.InvalidDateFormatException
 import io.mosip.preregistration.application.exception.RecordNotFoundException;
 import io.mosip.preregistration.application.exception.util.DemographicExceptionCatcher;
 import io.mosip.preregistration.application.repository.ApplicationRepostiory;
+import io.mosip.preregistration.application.repository.DemographicRepository;
+import io.mosip.preregistration.application.repository.LostUINRepository;
 import io.mosip.preregistration.application.service.util.DemographicServiceUtil;
 import io.mosip.preregistration.core.code.ApplicationStatusCode;
 import io.mosip.preregistration.core.code.AuditLogVariables;
@@ -57,14 +62,19 @@ import io.mosip.preregistration.core.code.EventType;
 import io.mosip.preregistration.core.code.StatusCodes;
 import io.mosip.preregistration.core.common.dto.AuditRequestDto;
 import io.mosip.preregistration.core.common.dto.DeleteBookingDTO;
+import io.mosip.preregistration.core.common.dto.DemographicResponseDTO;
 import io.mosip.preregistration.core.common.dto.MainRequestDTO;
 import io.mosip.preregistration.core.common.dto.MainResponseDTO;
 import io.mosip.preregistration.core.common.entity.ApplicationEntity;
+import io.mosip.preregistration.core.common.entity.DemographicEntity;
+import io.mosip.preregistration.core.common.entity.LostUINEntity;
 import io.mosip.preregistration.core.config.LoggerConfiguration;
+import io.mosip.preregistration.core.exception.HashingException;
 import io.mosip.preregistration.core.exception.InvalidPreRegistrationIdException;
 import io.mosip.preregistration.core.exception.InvalidRequestParameterException;
 import io.mosip.preregistration.core.exception.PreIdInvalidForUserIdException;
 import io.mosip.preregistration.core.util.AuditLogUtil;
+import io.mosip.preregistration.core.util.HashUtill;
 import io.mosip.preregistration.core.util.ValidationUtil;
 
 @Service
@@ -75,6 +85,15 @@ public class ApplicationService implements ApplicationServiceIntf {
 
 	@Autowired
 	ApplicationRepostiory applicationRepository;
+
+	@Autowired
+	private LostUINRepository lostUINRepository;
+	
+	/**
+	 * Autowired reference for {@link #RegistrationRepository}
+	 */
+	@Autowired
+	private DemographicRepository demographicRepository;
 
 	@Autowired
 	AuditLogUtil auditUtil;
@@ -295,6 +314,19 @@ public class ApplicationService implements ApplicationServiceIntf {
 					ApplicationStatusCode.SUBMITTED.getApplicationStatusCode(),
 					StatusCodes.PENDING_APPOINTMENT.getCode(), authUserDetails().getUserId());
 			isSuccess = true;
+
+			if (bookingType.equals(BookingTypeCodes.LOST_FORGOTTEN_UIN.toString())) {
+			LostUINEntity lostUINEntity = new LostUINEntity();
+
+			lostUINEntity.setDemographicId(request.getRequest().getPreregistrationId());
+			lostUINEntity.setApplicationId(applicationEntity.getApplicationId());
+			lostUINEntity.setLangCode(request.getRequest().getLangCode());
+			lostUINEntity.setCrBy(applicationEntity.getCrBy());
+			lostUINEntity.setCrDtime(LocalDateTime.now(ZoneId.of("UTC")));
+
+			lostUINRepository.save(lostUINEntity);
+			}
+
 			ApplicationResponseDTO appplicationResponse = new ApplicationResponseDTO();
 			appplicationResponse.setApplicationId(applicationEntity.getApplicationId());
 			appplicationResponse.setBookingType(applicationEntity.getBookingType());
@@ -305,6 +337,34 @@ public class ApplicationService implements ApplicationServiceIntf {
 			appplicationResponse.setCreatedDateTime(serviceUtil.getLocalDateString(applicationEntity.getCrDtime()));
 			appplicationResponse.setUpdatedBy(applicationEntity.getUpdBy());
 			appplicationResponse.setUpdatedDateTime(serviceUtil.getLocalDateString(applicationEntity.getUpdDtime()));
+
+			DemographicEntity demographicEntity = demographicRepository.findBypreRegistrationId(request.getRequest().getPreregistrationId());
+			System.out.println("demographicEntity...." + demographicEntity);
+			if (demographicEntity != null) {
+				List<String> list = listAuth(authUserDetails().getAuthorities());
+				log.info("sessionId", "idType", "id",
+						"In getDemographicData method of pre-registration service with list  " + list);
+				if (list.contains("ROLE_INDIVIDUAL")) {
+					userValidationz(authUserDetails().getUserId(), demographicEntity.getCreatedBy());
+				}
+				String hashString = HashUtill.hashUtill(demographicEntity.getApplicantDetailJson());
+
+				if (HashUtill.isHashEqual(demographicEntity.getDemogDetailHash().getBytes(),
+						hashString.getBytes())) {
+
+					DemographicResponseDTO demographicData = serviceUtil.setterForCreateDTO(demographicEntity);
+					appplicationResponse.setDemographicData(demographicData);
+				} else {
+					throw new HashingException(
+							io.mosip.preregistration.core.errorcodes.ErrorCodes.PRG_CORE_REQ_010.name(),
+							io.mosip.preregistration.core.errorcodes.ErrorMessages.HASHING_FAILED.name());
+
+				}
+			} else {
+				throw new RecordNotFoundException(DemographicErrorCodes.PRG_PAM_APP_005.getCode(),
+						DemographicErrorMessages.UNABLE_TO_FETCH_THE_PRE_REGISTRATION.getMessage());
+			}
+
 			mainResponseDTO.setResponse(appplicationResponse);
 			mainResponseDTO.setResponsetime(serviceUtil.getCurrentResponseTime());
 			log.info("sessionId", "idType", "id",
@@ -512,6 +572,16 @@ public class ApplicationService implements ApplicationServiceIntf {
 			}	
 		}	
 		
+	}
+
+	
+	public void userValidationz(String authUserId, String preregUserId) {
+		log.info("sessionId", "idType", "id", "In getDemographicData method of userValidation with priid "
+				+ preregUserId + " and userID " + authUserId);
+		if (!authUserId.trim().equals(preregUserId.trim())) {
+			throw new PreIdInvalidForUserIdException(DemographicErrorCodes.PRG_PAM_APP_017.getCode(),
+					DemographicErrorMessages.INVALID_PREID_FOR_USER.getMessage());
+		}
 	}
 
 	/**

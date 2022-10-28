@@ -21,5 +21,6 @@ import org.springframework.context.annotation.FilterType;
 public class PreRegistrationApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(PreRegistrationApplication.class, args);
+		System.out.println("PreRegistrationApplication.............");
 	}
 }
